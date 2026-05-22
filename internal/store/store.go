@@ -69,6 +69,28 @@ func (s *FileStore) Save(title, content string) (Note, error) {
 	return Note{ID: id, Title: title, CreatedAt: now}, nil
 }
 
+func (s *FileStore) Update(id, title, content string) (Note, error) {
+	m, err := s.loadMeta(id)
+	if err != nil {
+		return Note{}, err
+	}
+	if title == "" {
+		title = deriveTitle(content)
+	}
+	if err := os.WriteFile(s.mdPath(id), []byte(content), 0644); err != nil {
+		return Note{}, fmt.Errorf("write markdown: %w", err)
+	}
+	m.Title = title
+	metaBytes, err := json.Marshal(m)
+	if err != nil {
+		return Note{}, fmt.Errorf("marshal metadata: %w", err)
+	}
+	if err := os.WriteFile(s.metaPath(id), metaBytes, 0644); err != nil {
+		return Note{}, fmt.Errorf("write metadata: %w", err)
+	}
+	return Note{ID: m.ID, Title: m.Title, CreatedAt: m.CreatedAt}, nil
+}
+
 func (s *FileStore) List() ([]Note, error) {
 	entries, err := os.ReadDir(s.dir)
 	if err != nil {

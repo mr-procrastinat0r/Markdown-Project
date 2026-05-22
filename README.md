@@ -1,13 +1,16 @@
 # Markdown Note-taking App
 
-A REST API written in Go for saving Markdown notes, listing them, rendering HTML, and checking grammar.
+A REST API and web GUI written in Go for saving Markdown notes, listing them, rendering HTML, and checking grammar.
 
 ## Features
 
+- **Web GUI** — editor, live preview, note list, grammar panel, file upload
 - **Save notes** — JSON body or multipart file upload
+- **Update notes** — edit and save existing notes from the GUI
 - **List notes** — metadata for all saved notes
 - **Get note** — raw Markdown content
 - **Render HTML** — GFM Markdown rendered to a full HTML page
+- **Live preview** — `POST /api/preview` without saving
 - **Grammar check** — LanguageTool HTTP API (plain text or Markdown-stripped)
 
 ## Requirements
@@ -23,6 +26,8 @@ go run ./cmd/server
 ```
 
 Server listens on `http://localhost:8080` by default.
+
+Open **http://localhost:8080** in your browser for the GUI.
 
 ## Configuration
 
@@ -68,6 +73,22 @@ curl http://localhost:8080/api/notes
 curl http://localhost:8080/api/notes/{id}
 ```
 
+### Update note
+
+```bash
+curl -X PUT http://localhost:8080/api/notes/{id} \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Updated","content":"# Revised\n\nNew body."}'
+```
+
+### Preview (no save)
+
+```bash
+curl -X POST http://localhost:8080/api/preview \
+  -H "Content-Type: application/json" \
+  -d '{"content":"# Hi\n\n**bold**"}'
+```
+
 ### Render HTML
 
 ```bash
@@ -97,7 +118,8 @@ curl -X POST http://localhost:8080/api/grammar/check \
 ## Project layout
 
 ```
-cmd/server/          # entrypoint
+cmd/server/          # entrypoint (embeds static GUI)
+cmd/server/static/   # GUI (HTML, CSS, JS)
 internal/
   handler/           # HTTP handlers
   store/             # filesystem persistence

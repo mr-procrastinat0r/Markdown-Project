@@ -68,6 +68,33 @@ func (h *Handler) CreateNote(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, note)
 }
 
+func (h *Handler) UpdateNote(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
+	defer r.Body.Close()
+
+	var req createNoteJSON
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if strings.TrimSpace(req.Content) == "" {
+		writeError(w, http.StatusBadRequest, "content is required")
+		return
+	}
+
+	note, err := h.store.Update(id, req.Title, req.Content)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "note not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to update note")
+		return
+	}
+	writeJSON(w, http.StatusOK, note)
+}
+
 func (h *Handler) parseJSONNote(w http.ResponseWriter, r *http.Request) (string, string, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
 	defer r.Body.Close()
@@ -168,6 +195,32 @@ func (h *Handler) RenderNoteHTML(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(doc)
+}
+
+type previewJSON struct {
+	Content string `json:"content"`
+}
+
+func (h *Handler) PreviewMarkdown(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
+	defer r.Body.Close()
+
+	var req previewJSON
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if strings.TrimSpace(req.Content) == "" {
+		writeError(w, http.StatusBadRequest, "content is required")
+		return
+	}
+
+	body, err := markdown.ToHTML([]byte(req.Content))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to render markdown")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"html": string(body)})
 }
 
 func (h *Handler) CheckGrammar(w http.ResponseWriter, r *http.Request) {
